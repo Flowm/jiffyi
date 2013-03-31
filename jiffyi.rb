@@ -171,10 +171,11 @@ class JiffyActionHandler
     end
     dir = File.dirname(prg)
     Dir.chdir(dir)
-    fail "Could not locate scripts folder" unless File.exists?("scripts/")
+    fail "Could not locate scripts folder" unless File.exists?("scripts")
+    Dir.mkdir(".tmp") unless File.exists?(".tmp")
 
     # Trick to get an authenticated ssh session without much effort
-    sshopts="-o ControlMaster=auto -o ControlPath=#{dir}/tmp/ssh_mux_%h_%p_%r -o StrictHostKeyChecking=no"
+    sshopts="-o ControlMaster=auto -o ControlPath=#{dir}/.tmp/ssh_mux_%h_%p_%r -o StrictHostKeyChecking=no"
     ip = json['ips']['public'].first
     sleep(10)
     spawn("ssh #{sshopts} root@#{ip} sleep 600")
