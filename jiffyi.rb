@@ -231,6 +231,23 @@ class JiffyActionHandler
     puts "Jiffybox #{@options[:id]} is now being deleted"
   end
 
+  # PLANNED FUNCTIONS
+  def exec(options)
+    # Execute a command on the jiffybox
+  end
+
+  def runscript(options)
+    # Run a specified script
+  end
+
+  def status(options)
+    # Give a nice tabular overview over all jiffyBoxes
+  end
+
+  def connect(options)
+    # Connect to the jiffyBox via SSH
+  end
+
   # HELPERS
   def findjiffy(options)
     # Function to get the JiffyBox with the lowest id
