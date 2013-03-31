@@ -18,7 +18,9 @@ class JiffyActionHandler
     "stop" => "Stops a certain jiffyBox",
     "freeze" => "Freezes a certain jiffyBox",
     "thaw" => "Thaws a certain jiffyBox",
-    "delete" => "Deletes a certain jiffyBox"
+    "delete" => "Deletes a certain jiffyBox",
+    "install" => "Creates a new jiffyBox and install something on it",
+    "teardown" => "Stops and deletes a certain jiffyBox after runnng a script"
   }
 
   def initialize(attrs)
@@ -107,20 +109,125 @@ class JiffyActionHandler
     if action == "list"
       fail "list <planid,distributions,jiffyBoxes>"
     elsif action == "show"
-      fail "show -i id"
+      fail "show -i ID"
     elsif action == "start"
-      fail "start -i id"
+      fail "start -i ID"
     elsif action == "stop"
-      fail "stop [now] -i id"
+      fail "stop [now] -i ID"
     elsif action == "thaw"
-      fail "thaw -i id"
+      fail "thaw -i ID"
     elsif action == "create"
-      fail "create -n name -d distribution -p planid"
+      fail "create -n NAME -d DISTRIBUTION -p PLANID"
     elsif action == "delete"
-      fail "delete -i id"
+      fail "delete -i ID"
+    elsif action == "install"
+      fail "install -n NAME -d DISTRIBUTION -p PLANID [PRESET ...]"
+    elsif action == "teardown"
+      fail "teardown -i ID"
     else
       fail "No help available for #{action}"
     end
+  end
+
+  # EXTENDED FUNCTIONS
+  def install(options)
+    # Do a complete install of a new jiffyBox (create, start and execute specified scripts)
+    # Creation
+    help "install" unless @options[:name] && @options[:planid] && @options[:distribution]
+    json = create []
+    # Workaround for strange network configuration errors
+    fail "No valid response recived" unless (json['messages'].class == Array)
+    fail "Creation of the Jiffybox wasn't successful" unless
+      (json['messages'].length == 0 ||
+       json['messages'][0]['message'].match("Netzwerk-Konfiguration"))
+    @options[:id] = json['result']['id']
+
+    # Get the jiffyBox running
+    begin
+      json = show []
+      case json['status']
+      when "CREATING"
+        sleep(5)
+        puts "Waiting for creation"
+      when "READY"
+        if json['running'] == false
+          start []
+          puts "Starting"
+        end
+      when "UPDATING"
+        sleep(5)
+        puts "Waiting for update"
+      else
+        fail "Unknown State of Jiffybox: #{json['status']}"
+      end
+    end while (json['status'] != "READY" || json['running'] != true)
+    puts "Jiffybox now up and running!"
+
+    # Install the JiffyBox
+    # cd to the directory where the programm itself and (hopefully) the scripts folder is located
+    prg = File.expand_path $0
+    if File.symlink?(prg)
+      prg = File.readlink(prg)
+    end
+    dir = File.dirname(prg)
+    Dir.chdir(dir)
+    fail "Could not locate scripts folder" unless File.exists?("scripts/")
+
+    # Trick to get an authenticated ssh session without much effort
+    sshopts="-o ControlMaster=auto -o ControlPath=#{dir}/tmp/ssh_mux_%h_%p_%r -o StrictHostKeyChecking=no"
+    ip = json['ips']['public'].first
+    sleep(10)
+    spawn("ssh #{sshopts} root@#{ip} sleep 600")
+    sleep(5)
+
+    # Execute the scripts
+    system("ssh #{sshopts} root@#{ip} mkdir -p install") ||
+      fail("Could not create remote install directory")
+    preset = options
+    preset.unshift("all")
+    preset.each do |name|
+      file = Dir.entries('scripts/').detect {|f| f.match /^install_#{name}/}
+      if File.exists?("scripts/#{file}")
+        system("scp #{sshopts} scripts/#{file} root@#{ip}:install/") ||
+          fail("Could not copy file")
+        system("ssh #{sshopts} root@#{ip} install/#{file}") ||
+          fail("Execution of #{file} failed")
+      end
+    end
+    puts "Jiffybox is now installed! IP: #{ip}"
+  end
+
+  def teardown(options)
+    # Stop and delete a given jiffyBox
+    help "teardown" unless @options[:id]
+    exit 1 if protected?(@options[:id])
+    json = stop []
+    # Ensure that the jiffyBox is stopped
+    fail "No valid response recived" unless (json['messages'].class == Array)
+    fail "Deletion of the Jiffybox wasn't successful" unless
+        (json['messages'].length == 0 ||
+         json['messages'][0]['message'].match("dashalb nicht gestoppt werden"))
+    # Delete the jiffyBox
+    begin
+      json = show []
+      case json['status']
+        when "READY"
+          if json['running'] == false
+            delete []
+            puts "Deleting"
+          end
+        when "UPDATING"
+          sleep(5)
+          puts "Waiting for update"
+        when "STOPPING"
+          sleep(5)
+          puts "Waiting for jiffyBox to stop"
+        when "DELETING"
+        else
+          fail "Unknown State of Jiffybox: #{json['status']}"
+      end
+    end while (json['status'] != "DELETING")
+    puts "Jiffybox #{@options[:id]} is now being deleted"
   end
 
   # HELPERS
@@ -284,7 +391,7 @@ class JiffyActionHandler
     JiffyActionHandler.usage unless ARGV.size >= 1
     action = ARGV.shift
     jiffy = JiffyActionHandler.new attrs
-    puts @@options unless jiffy.respond_to?(action)
+    puts JiffyActionHandler.usage unless jiffy.respond_to?(action)
 
     # Getting the id if not already given
     if !attrs[:id]
