@@ -1,0 +1,8 @@
+# Example configuration file
+default:
+  :apitoken: YOUR32CHARACTERAPITOKEN
+  :distribution: ubuntu_12_4_lts_64bit
+  :planid: CloudLevel 1
+  :protected_ids: 
+  - 12345
+  - 54321
