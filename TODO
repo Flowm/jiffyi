@@ -1,0 +1,8 @@
+Improve help function to enable different exit states
+Newline for each jiffyBox ID in list view
+Check the validity of the json response
+Add warning and help message if gems are missing
+Show available installation options by searching through the scripts folder
+Create a basic integration test, that creates, starts, stops and deletes a jiffybox
+Suppress irrelevant output by default, add -v and -q switch
+Skip protected_ids when selecting jiffyBoxes with -f
