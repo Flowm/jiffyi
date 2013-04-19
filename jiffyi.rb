@@ -144,24 +144,26 @@ class JiffyActionHandler
 
     # Get the jiffyBox running
     begin
+      sleep(2)
       json = show []
       case json['status']
       when "CREATING"
-        sleep(5)
         puts "Waiting for creation"
+        sleep(10)
       when "READY"
         if json['running'] == false
           start []
           puts "Starting"
         end
       when "UPDATING"
-        sleep(5)
         puts "Waiting for update"
+        sleep(5)
       else
         fail "Unknown State of Jiffybox: #{json['status']}"
       end
     end while (json['status'] != "READY" || json['running'] != true)
     puts "Jiffybox now up and running!"
+    @ip = json['ips']['public'].first
 
     # Install the JiffyBox
     # cd to the directory where the programm itself and (hopefully) the scripts folder is located
@@ -174,28 +176,22 @@ class JiffyActionHandler
     fail "Could not locate scripts folder" unless File.exists?("scripts")
     Dir.mkdir(".tmp") unless File.exists?(".tmp")
 
-    # Trick to get an authenticated ssh session without much effort
-    sshopts="-o ControlMaster=auto -o ControlPath=#{dir}/.tmp/ssh_mux_%h_%p_%r -o StrictHostKeyChecking=no"
-    ip = json['ips']['public'].first
-    sleep(10)
-    spawn("ssh #{sshopts} root@#{ip} sleep 600")
-    sleep(5)
+    prepare_ssh_cm(dir)
 
     # Execute the scripts
-    system("ssh #{sshopts} root@#{ip} mkdir -p install") ||
-      fail("Could not create remote install directory")
+    exec("mkdir -p install")
     preset = options
     preset.unshift("all")
     preset.each do |name|
+      puts "Executing install_#{name}"
       file = Dir.entries('scripts/').detect {|f| f.match /^install_#{name}/}
       if File.exists?("scripts/#{file}")
-        system("scp #{sshopts} scripts/#{file} root@#{ip}:install/") ||
+        system("scp #{@sshopts} scripts/#{file} root@#{@ip}:install/") ||
           fail("Could not copy file")
-        system("ssh #{sshopts} root@#{ip} install/#{file}") ||
-          fail("Execution of #{file} failed")
+        exec("install/#{file}")
       end
     end
-    puts "Jiffybox is now installed! IP: #{ip}"
+    puts "Jiffybox is now installed! IP: #{@ip}"
   end
 
   def teardown(options)
@@ -231,11 +227,14 @@ class JiffyActionHandler
     puts "Jiffybox #{@options[:id]} is now being deleted"
   end
 
-  # PLANNED FUNCTIONS
-  def exec(options)
+  def exec(command)
     # Execute a command on the jiffybox
+    help "exec" unless command.class == String
+    system("ssh #{@sshopts} root@#{@ip} '#{command}'") ||
+          fail("Execution of #{command} failed")
   end
 
+  # PLANNED FUNCTIONS
   def runscript(options)
     # Run a specified script
   end
@@ -249,6 +248,16 @@ class JiffyActionHandler
   end
 
   # HELPERS
+  def prepare_ssh_cm(dir)
+    # Trick to get an authenticated ssh session without much effort
+    fail "IP of the JiffyBox unknown" unless @ip
+    fail "Internal error" unless dir && dir.class == String
+    @sshopts = "-o ControlMaster=auto -o ControlPath=#{dir}/.tmp/ssh_mux_%h_%p_%r -o StrictHostKeyChecking=no"
+    sleep(10)
+    spawn("ssh #{@sshopts} root@#{@ip} sleep 600")
+    sleep(5)
+  end
+
   def findjiffy(options)
     # Function to get the JiffyBox with the lowest id
     # or a JiffyBox with a given name
