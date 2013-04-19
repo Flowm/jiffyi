@@ -3,5 +3,11 @@
 export DEBIAN_FRONTEND=noninteractive 
 apt-get update
 apt-get dist-upgrade -y
+
 apt-get install -y git-core etckeeper
+sed -i'.bak' 's/^VCS=\"bzr\"/#VCS=\"bzr\"/' /etc/etckeeper/etckeeper.conf
+sed -i'.bak' 's/^#VCS=\"git\"/VCS=\"git\"/' /etc/etckeeper/etckeeper.conf
+etckeeper init
+etckeeper commit -m "Initial commit"
+
 apt-get install -y ack-grep bash-completion build-essential cu curl htop libssl-dev man-db openssh-server pv python-software-properties telnet tmux tsocks unp unzip vim wget
