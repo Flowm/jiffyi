@@ -13,6 +13,7 @@ class JiffyActionHandler
   SUPPORTED_ACTIONS = {
     "list" => "Lists all jiffyBoxes of the account",
     "show" => "Shows informations about a single jiffyBox",
+    "select" => "Write the IP of the jiffyBox to '~/.jiffyip'",
     "create" => "Creates a new jiffyBox",
     "start" => "Starts a certain jiffyBox",
     "stop" => "Stops a certain jiffyBox",
@@ -234,9 +235,18 @@ class JiffyActionHandler
           fail("Execution of #{command} failed")
   end
 
+  def select(options)
+    # Write the ip of the jiffyBox to '~/.jiffyip' for further use in scripts
+    json = show []
+    ip = json['ips']['public'].first
+    f = File.expand_path("~/.jiffyip")
+    File.open(f, 'w+') { |file| file.write(ip) }
+    "JiffyBox #{@options[:id]} IP #{ip} saved to #{f}"
+  end
+
   # PLANNED FUNCTIONS
   def runscript(options)
-    # Run a specified script
+    # Run a specified script on the jiffyBox
   end
 
   def status(options)
