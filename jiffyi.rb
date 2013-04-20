@@ -184,7 +184,7 @@ class JiffyActionHandler
     preset.unshift("all")
     preset.each do |name|
       puts "Executing install_#{name}"
-      file = Dir.entries('scripts/').detect {|f| f.match /^install_#{name}/}
+      file = Dir.entries('scripts/').detect {|f| f.match /^install_#{name}$/}
       if File.exists?("scripts/#{file}")
         system("scp #{@sshopts} scripts/#{file} root@#{@ip}:install/") ||
           fail("Could not copy file")
@@ -224,7 +224,7 @@ class JiffyActionHandler
           fail "Unknown State of Jiffybox: #{json['status']}"
       end
     end while (json['status'] != "DELETING")
-    puts "Jiffybox #{@options[:id]} is now being deleted"
+    "Jiffybox #{@options[:id]} is now being deleted"
   end
 
   def exec(command)
